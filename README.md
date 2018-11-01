@@ -1,3 +1,3 @@
-# faas_db
+# faas_sqlite
 
-Sample project demonstrating creation of SQLite3 DB on AWS Lambda w/ Java
+Sample project demonstrating use of SQLite3 databases on AWS Lambda w/ Java
