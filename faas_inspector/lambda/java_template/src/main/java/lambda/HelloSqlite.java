@@ -44,7 +44,7 @@ public class HelloSqlite implements RequestHandler<Request, Response>
         try
         {
             // Connection string an in-memory SQLite DB
-            //Connection con = DriverManager.getConnection("jdbc:sqlite::memory"); 
+            //Connection con = DriverManager.getConnection("jdbc:sqlite:"); 
             
             // Connection string for a file-based SQlite DB
             Connection con = DriverManager.getConnection("jdbc:sqlite:mytest.db"); 
@@ -199,7 +199,14 @@ public class HelloSqlite implements RequestHandler<Request, Response>
         
         // Run the function
         Response resp = lt.handleRequest(req, c);
-        
+        try
+        {
+            Thread.sleep(100000);
+        }
+        catch (InterruptedException ie)
+        {
+            System.out.print(ie.toString());
+        }
         // Print out function result
         System.out.println("function result:" + resp.toString());
     }
