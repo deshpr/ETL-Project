@@ -23,7 +23,7 @@ import java.util.LinkedList;
  * uwt.lambda_test::handleRequest
  * @author wlloyd
  */
-public class Hello implements RequestHandler<Request, Response>
+public class HelloSqlite implements RequestHandler<Request, Response>
 {
     static String CONTAINER_ID = "/tmp/container-id";
     static Charset CHARSET = Charset.forName("US-ASCII");
@@ -171,7 +171,7 @@ public class Hello implements RequestHandler<Request, Response>
         };
         
         // Create an instance of the class
-        Hello lt = new Hello();
+        HelloSqlite lt = new HelloSqlite();
         
         // Create a request object
         Request req = new Request();
