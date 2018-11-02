@@ -43,21 +43,33 @@ public class HelloSqlite implements RequestHandler<Request, Response>
         setCurrentDirectory("/tmp");
         try
         {
+            // Connection string an in-memory SQLite DB
             //Connection con = DriverManager.getConnection("jdbc:sqlite::memory"); 
+            
+            // Connection string for a file-based SQlite DB
             Connection con = DriverManager.getConnection("jdbc:sqlite:mytest.db"); 
+            
+            // Detect if the table 'mytable' exists in the database
             PreparedStatement ps = con.prepareStatement("SELECT name FROM sqlite_master WHERE type='table' AND name='mytable'");
             ResultSet rs = ps.executeQuery();
             if (!rs.next())
             {
+                // 'mytable' does not exist, and should be created
                 logger.log("trying to create table 'mytable'");
                 ps = con.prepareStatement("CREATE TABLE mytable ( name text, col2 text, col3 text);");
                 ps.execute();
             }
             rs.close();
+            
+            // Insert row into mytable
             ps = con.prepareStatement("insert into mytable values('" + request.getName() + "','b','c');");
             ps.execute();
+            
+            // Query mytable to obtain full resultset
             ps = con.prepareStatement("select * from mytable;");
             rs = ps.executeQuery();
+            // Load query results for [name] column into a Java Linked List
+            // ignore [col2] and [col3] 
             LinkedList<String> ll = new LinkedList<String>();
             while (rs.next())
             {
