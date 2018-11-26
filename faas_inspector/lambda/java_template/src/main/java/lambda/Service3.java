@@ -15,12 +15,16 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import faasinspector.register;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -28,6 +32,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.Scanner;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 /**
  * uwt.lambda_test::handleRequest
  * @author wlloyd
@@ -37,6 +43,9 @@ public class Service3 implements RequestHandler<Request, Response>
     static String CONTAINER_ID = "/tmp/container-id";
     static Charset CHARSET = Charset.forName("US-ASCII");
     
+     // Initialize the Log4j logger.
+    static LambdaLogger logger;
+    
     public static boolean setCurrentDirectory(String directory_name)
     {
         boolean result = false;  // Boolean indicating whether directory was set
@@ -51,141 +60,136 @@ public class Service3 implements RequestHandler<Request, Response>
         return result;
     }
         
-     public static void createFile(String filename,InputStream input){
+     public static void createFile(String directoryName, String filename,S3Object object){
        try{
-	    byte[] buffer = new byte[input.available()];
+           InputStream reader = new BufferedInputStream(object.getObjectContent());
+            File file = new File(directoryName, filename);      
+            OutputStream writer = new BufferedOutputStream(new FileOutputStream(file));
+
+            int read = -1;
+
+            while ( ( read = reader.read() ) != -1 ) {
+                writer.write(read);
+            }
+
+            writer.flush();
+            writer.close();
+            reader.close();
+           
+/*	    byte[] buffer = new byte[input.available()];
+            String currentDirectory = System.getProperty("user.dir");
+            logger.log("Current dir = " + currentDirectory);
             input.read(buffer);
-	    File file = new File(filename);      
+            logger.log("Read the entire buffer of length = " +  buffer.length);            
+	    File file = new File(currentDirectory, filename);      
 	    OutputStream out = new FileOutputStream(file);
+            logger.log("Write to the buffer");
             out.write(buffer);
             out.flush();
 	    out.close(); 
 	}
 	catch(Exception e){
 	    e.printStackTrace();
-	}
-	
+            logger.log(e.toString());  */
+
+        logger.log("File after writing has size = " + file.length());
+
+	}catch(Exception ex){
+            logger.log(ex.toString());
+        }
     }
     
-    private void DownloadSQLiteDatabase(String bucketName, String sourceKey, String fileName)
+    private  void DownloadSQLiteDatabase(String bucketName, String sourceKey, String fileName, String directoryName)
     {
         
         setCurrentDirectory("/tmp");
             
+        logger.log("Download the sqlite database");
+        
         AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();         
         
         //get object file using source bucket and srcKey name
         
         S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucketName, sourceKey));
-        //get content of the file
-        
-        InputStream objectData = s3Object.getObjectContent();
-        //scanning data line by line
-        String textToUpload = "";
-        Scanner scanner = new Scanner(objectData);
-        long total = 0;
-        double avg = 0;
-        int count  = 0;
-        while (scanner.hasNext()) {
-            String line = scanner.nextLine();
-            String[] parts = line.split(",");
-            long sum = 0;
-            total += sum;
-            textToUpload += line;
-        }
-        scanner.close();
-
-       createFile("tmp/salespipeline.db", objectData);	
+        //get content of the file        
+        logger.log("Now create the file after downloading..");
+       createFile(directoryName, "salespipeline.db", s3Object);
+       logger.log("Created the file successfully");
     }
     
+    private boolean checkIfFileExists(String directory, String fileWithDatabase){
+        File f = new File(directory, fileWithDatabase);
+        if(f.exists()){
+            logger.log("File size = " + f.length());
+        }
+        return f.exists();
+    }
+    
+    private boolean deleteDatabase(String directoryName, String fileWithDatabase){
+        File f = new File(directoryName, fileWithDatabase);
+        return f.delete();
+    }
     
     // Lambda Function Handler
     public Response handleRequest(Request request, Context context) {
+                        String hello = "Hello " + request.getName();
+
+
+
         // Create logger
-        LambdaLogger logger = context.getLogger();
+         logger = context.getLogger();
         
         // Register function
         register reg = new register(logger);
 
         //stamp container with uuid
         Response r = reg.StampContainer();
+        String directoryName = "/tmp";
+                r.setValue(hello);
         
-        setCurrentDirectory("/tmp");
-        try
-        {
-            // Connection string an in-memory SQLite DB
-            //Connection con = DriverManager.getConnection("jdbc:sqlite:"); 
+        setCurrentDirectory(directoryName);
+        
+        logger.log("Called the aws lamnbda");
+        String bucketName = "test.bucket.562.rah1";
+        String fileName = "salespipeline.db";
+       
             
-            // Connection string for a file-based SQlite DB
-            Connection con = DriverManager.getConnection("jdbc:sqlite:mytest.db"); 
-            
-            // Detect if the table 'mytable' exists in the database
-            PreparedStatement ps = con.prepareStatement("SELECT name FROM sqlite_master WHERE type='table' AND name='mytable'");
+        
+        
+        if(!checkIfFileExists(directoryName, fileName)){
+            DownloadSQLiteDatabase(bucketName, fileName, fileName, directoryName);
+            logger.log("Downloaded the entire datavase");
+        }
+
+        /*
+        
+        try{
+            Connection con = DriverManager.getConnection("jdbc:sqlite:salespipeline.db");
+
+            logger.log("trying to create table 'sales' if it does not exists"); 
+            PreparedStatement   ps   =   con.prepareStatement("SELECT   name   FROM   sqlite_master   WHERE type='table' AND name='sales'");
             ResultSet rs = ps.executeQuery();
             if (!rs.next())
             {
-                // 'mytable' does not exist, and should be created
-                logger.log("trying to create table 'mytable'");
-                ps = con.prepareStatement("CREATE TABLE mytable ( name text, col2 text, col3 text);");
-                ps.execute();
+                    // 'sales' does not exist, and should be created
+                    logger.log("trying to create table 'sales'");
+                    ps = con.prepareStatement("CREATE TABLE IF NOT EXISTS sales(region text,country text,itemtype text,saleschannel text,orderpriority text,orderdate text,orderid integer,shipdate text,unitssold integer,unitprice real,unitcost real,totalrevenue real,totalcost real,totalprofit real);");  
+                    ps.execute();
             }
             rs.close();
-            
-            // Insert row into mytable
-            ps = con.prepareStatement("insert into mytable values('" + request.getName() + "','b','c');");
-            ps.execute();
-            
-            // Query mytable to obtain full resultset
-            ps = con.prepareStatement("select * from mytable;");
-            rs = ps.executeQuery();
-            // Load query results for [name] column into a Java Linked List
-            // ignore [col2] and [col3] 
-            LinkedList<String> ll = new LinkedList<String>();
-            while (rs.next())
-            {
-                logger.log("name=" + rs.getString("name"));
-                ll.add(rs.getString("name"));
-                logger.log("col2=" + rs.getString("col2"));
-                logger.log("col3=" + rs.getString("col3"));
-            }
-            rs.close();
-            con.close();
-            r.setNames(ll);
+            logger.log("Created the datavase");
         }
-        catch (SQLException sqle)
+        catch(Exception ex)
         {
-            logger.log("DB ERROR:" + sqle.toString());
-            sqle.printStackTrace();
+        logger.log(ex.toString());
         }
-        
-        
-        // *********************************************************************
-        // Implement Lambda Function Here
-        // *********************************************************************
-        String hello = "Hello " + request.getName();
 
-        //Print log information to the Lambda log as needed
-        //logger.log("log message...");
+        */
         
-        // Set return result in Response class, class is marshalled into JSON
-        r.setValue(hello);
+        
         
         return r;
     }
-    
-    public static boolean setCurrentDirectory(String directory_name)
-    {
-        boolean result = false;  // Boolean indicating whether directory was set
-        File    directory;       // Desired current working directory
-
-        directory = new File(directory_name).getAbsoluteFile();
-        if (directory.exists() || directory.mkdirs())
-        {
-            result = (System.setProperty("user.dir", directory.getAbsolutePath()) != null);
-        }
-
-        return result;
-    }    
     
     // int main enables testing function from cmd line
     public static void main (String[] args)
