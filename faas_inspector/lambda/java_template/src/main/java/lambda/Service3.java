@@ -46,6 +46,8 @@ public class Service3 implements RequestHandler<Request, Response>
      // Initialize the Log4j logger.
     static LambdaLogger logger;
     
+    static String sqlDatabaseFileName = "salespipeline.db";
+    
     public static boolean setCurrentDirectory(String directory_name)
     {
         boolean result = false;  // Boolean indicating whether directory was set
@@ -129,28 +131,120 @@ public class Service3 implements RequestHandler<Request, Response>
 	return count;
     }
     
-    public boolean executeQuery(String query, String sqliteDatabaseFileName){
-        	int count = 0;
+    public static String[] Columns = {
+        "region",
+        "country",
+        "itemtype",
+        "saleschannel",
+        "orderpriority",
+        "orderdate",
+        "orderid",
+        "shipdate",
+        "unitssold",
+        "unitprice",
+        "unitcost",
+        "totalrevenue",
+        "totalcost",
+        "totalprofit"            
+    };
+     
+    public double executeAggregateQuery(String query){
+        
+        double result = 0;
 	try{
-	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqliteDatabaseFileName);
+	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqlDatabaseFileName);
 	    PreparedStatement ps1 = con.prepareStatement(query);
-	    ResultSet rs1 = ps1.executeQuery();
-	    count = rs1.getInt("count");	
+	    ResultSet ps = ps1.executeQuery();
+            logger.log("Execute the results");
+            while (ps.next())
+            {
+                result = ps.getDouble(0);
+            }            
+            ps.close();
+            con.close();
 	}
 	catch(Exception e){
 		e.printStackTrace();
                 logger.log(e.toString());
 	}
-        return true;
+        return result;
+    }
+     
+    public LinkedList<SalesRecord> executeFilterQuery(String query){
+        int count = 0;
+        LinkedList<SalesRecord> results = new LinkedList<SalesRecord>();
+	try{
+	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqlDatabaseFileName);
+	    PreparedStatement ps1 = con.prepareStatement(query);
+	    ResultSet ps = ps1.executeQuery();
+            
+            logger.log("Execute the results");
+            
+            while (ps.next())
+            {
+                SalesRecord record = new SalesRecord();
+                record.Region = ps.getString(Columns[0]);
+                record.Country = ps.getString(Columns[1]);
+                record.ItemType = ps.getString(Columns[2]);
+                record.SalesChannel = ps.getString(Columns[3]);
+                record.OrderPriority = ps.getString(Columns[4]);
+                record.OrderDate = ps.getString(Columns[5]);
+                record.OrderId = ps.getInt(Columns[6]);
+                record.ShipDate = ps.getString(Columns[7]);
+                record.UnitsSold = ps.getInt(Columns[8]);                   
+                record.UnitPrice = ps.getDouble(Columns[9]);
+                record.UnitCost = ps.getDouble(Columns[10]);
+                record.TotalRevenue = ps.getDouble(Columns[11]);
+                record.TotalCost = ps.getDouble(Columns[12]);
+                record.TotalProfit  = ps.getDouble(Columns[13]);	
+                results.add(record);
+            }
+            ps.close();
+            con.close();
+	}
+	catch(Exception e){
+		e.printStackTrace();
+                logger.log(e.toString());
+	}
+        return results;
     }
      
      
+    public LinkedList<SalesRecord> HandleFilterQuery(String queryType, String column, String parameters)
+    {
+
+    }
+    
+    public LinkedList<SalesRecord> HandleQuery(String queryType, String column, String parameters){
+        
+        logger.log("Query type = " + queryType.toLowerCase());
+        LinkedList<SalesRecord> results = null;
+        String query = "";
+        boolean filterQuery = false;
+        
+        if(queryType.toLowerCase().equals("filter"))
+        {
+            logger.log("Query type is filter, column = " + column + " and parameters = " + parameters);
+            query = "SELECT * FROM sales WHERE " + column + "='" + parameters + "';";            
+            filterQuery = true;
+        }
+        else if(queryType.toLowerCase().equals("Max")){
+            query = "SELECT MAX(" + column + ") from sales;";
+        }
+        
+        if(filterQuery){
+            double result = executeAggregateQuery(query);            
+        }
+        return results;
+    }
+    
+    
     // Lambda Function Handler
     public Response handleRequest(Request request, Context context) {
 
-        String requestType = request.getQuerytype();
-        String[] columns = request.getColumns();
-        String response =  "Type = " + requestType + " and column count = " + columns.length;
+        
+        String requestName = request.getName();
+//        String[] columns = request.getColumns();
 
         // Create logger
          logger = context.getLogger();
@@ -159,20 +253,33 @@ public class Service3 implements RequestHandler<Request, Response>
         register reg = new register(logger);
 
         //stamp container with uuid
+
+        logger.log("Type  is another one " + requestName + " and colum");
+        
         Response r = reg.StampContainer();
+        String response =  "Type  is another one  " + requestName + " and column count = " + request.getColumns();
+
         r.setValue(response);
 
           String directoryName = "/tmp";
         logger.log("Called the aws lamnbda");
         String bucketName = "test.bucket.562.rah1";
-        String databaseFileName = "salespipeline.db";
+        String databaseFileName = sqlDatabaseFileName;
        
         
-        if(!checkIfFileExists(directoryName, databaseFileName)){
+        if(!checkIfFileExists(directoryName, databaseFileName))
+        {
             logger.log("Creating the database file since it does not exist");
             DownloadSQLiteDatabase(bucketName, databaseFileName, databaseFileName, directoryName);
             logger.log("Downloaded the entire datavase");
         }
+        
+        logger.log("col = " + request.getName() + " and columns = " + request.getColumns() + " and parameters = " + request.getParameters());
+        LinkedList<SalesRecord> results = HandleQuery(request.getName(), request.getColumns(), request.getParameters());
+        r.setSalesRecords(results);
+        r.setCount(results.size());
+        
+        /*
                     try{
                                 setCurrentDirectory(directoryName);
             Connection con = DriverManager.getConnection("jdbc:sqlite:" + databaseFileName);
@@ -197,7 +304,7 @@ public class Service3 implements RequestHandler<Request, Response>
         catch(Exception ex)
         {
         logger.log(ex.toString());
-        }
+        }  */
 
         
 
@@ -279,11 +386,11 @@ public class Service3 implements RequestHandler<Request, Response>
         // Create an instance of the class
         Service3 lt = new Service3();
         
-        // Create a request object
-        Request req = new Request();
         
         // Grab the name from the cmdline from arg 0
         String name = (args.length > 0 ? args[0] : "");
+        // Create a request object
+        Request req = new Request(name, "");
         
         
         // Run the function

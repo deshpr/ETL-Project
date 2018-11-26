@@ -10,32 +10,42 @@ package lambda;
  * @author wlloyd
  */
 public class Request {
-
-    String querytype;
-    String[]  columns;
-    
-    public String getQuerytype(){
-        return this.querytype;
-    }
-    
-    public void setQuerytype(String querytype){
-        this.querytype = this.querytype;
-    }
-
-    public String[] getColumns(){
-        return this.columns;
-    }
-    
-    public void setColumns(String[] columns){
-        this.columns = this.columns;
-    }
-
-    public Request(String querytype, String[] columns)
+    String name;
+    public String getName()
     {
-        this.querytype = querytype;
+        return name;
+    }
+    public void setName(String name)
+    {
+        this.name = name;
+    }
+    
+        String columns;
+    public String getColumns()
+    {
+        return columns;
+    }
+    public void setColumns(String columns)
+    {
         this.columns = columns;
     }
     
+    String parameters;
+    public String getParameters()
+    {
+        return parameters;
+    }
+    
+    public void setParameters(String parameters)
+    {
+        this.parameters = parameters;
+    }
+
+    public Request(String name, String columns)
+    {
+        this.name = name;
+        this.columns = columns;
+    }
     public Request()
     {
         

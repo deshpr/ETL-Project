@@ -6,6 +6,7 @@
 package lambda;
 
 import faasinspector.fiResponse;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -30,6 +31,24 @@ public class Response extends fiResponse {
     public void setValue(String value)
     {
         this.value = value;
+    }
+    
+    private LinkedList<SalesRecord> salesRecords;
+    public LinkedList<SalesRecord> getSalesRecords(){
+        return salesRecords;
+    }
+    
+    public void setSalesRecords(LinkedList<SalesRecord> salesRecords){
+        this.salesRecords = salesRecords;
+    }
+    
+    private int count;
+    public int getCount(){
+        return count;
+    }
+    
+    public void setCount(int count){
+        this.count = count;
     }
     
     @Override
