@@ -77,7 +77,7 @@ public class Service3 implements RequestHandler<Request, Response>
             reader.close();
           
         logger.log("File after writing has size = " + file.length());
-
+        logger.log("File path = " + file.getAbsolutePath());
 	}catch(Exception ex){
             logger.log(ex.toString());
         }
@@ -114,11 +114,43 @@ public class Service3 implements RequestHandler<Request, Response>
         return f.delete();
     }
     
+     public static int getCountOfRecords(String sqliteDatabaseFileName){
+	int count = 0;
+	try{
+	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqliteDatabaseFileName);
+	    PreparedStatement ps1 = con.prepareStatement("select count(*) as count from sales;");
+	    ResultSet rs1 = ps1.executeQuery();
+	    count = rs1.getInt("count");	
+	}
+	catch(Exception e){
+		e.printStackTrace();
+                logger.log(e.toString());
+	}
+	return count;
+    }
+    
+    public boolean executeQuery(String query, String sqliteDatabaseFileName){
+        	int count = 0;
+	try{
+	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqliteDatabaseFileName);
+	    PreparedStatement ps1 = con.prepareStatement(query);
+	    ResultSet rs1 = ps1.executeQuery();
+	    count = rs1.getInt("count");	
+	}
+	catch(Exception e){
+		e.printStackTrace();
+                logger.log(e.toString());
+	}
+        return true;
+    }
+     
+     
     // Lambda Function Handler
     public Response handleRequest(Request request, Context context) {
-                        String hello = "Hello " + request.getName();
 
-
+        String requestType = request.getQuerytype();
+        String[] columns = request.getColumns();
+        String response =  "Type = " + requestType + " and column count = " + columns.length;
 
         // Create logger
          logger = context.getLogger();
@@ -128,17 +160,13 @@ public class Service3 implements RequestHandler<Request, Response>
 
         //stamp container with uuid
         Response r = reg.StampContainer();
-        String directoryName = "/tmp";
-                r.setValue(hello);
-        
+        r.setValue(response);
 
-        
+          String directoryName = "/tmp";
         logger.log("Called the aws lamnbda");
         String bucketName = "test.bucket.562.rah1";
         String databaseFileName = "salespipeline.db";
        
-            
-        
         
         if(!checkIfFileExists(directoryName, databaseFileName)){
             logger.log("Creating the database file since it does not exist");
@@ -160,7 +188,11 @@ public class Service3 implements RequestHandler<Request, Response>
                     ps.execute();
             }
             rs.close();
-            logger.log("Created the datavase");
+                
+            // Load a query.
+            int count = getCountOfRecords(databaseFileName);
+            
+            logger.log("Total of records = " + count);
         }
         catch(Exception ex)
         {
@@ -253,11 +285,6 @@ public class Service3 implements RequestHandler<Request, Response>
         // Grab the name from the cmdline from arg 0
         String name = (args.length > 0 ? args[0] : "");
         
-        // Load the name into the request object
-        req.setName(name);
-
-        // Report name to stdout
-        System.out.println("cmd-line param name=" + req.getName());
         
         // Run the function
         Response resp = lt.handleRequest(req, c);
