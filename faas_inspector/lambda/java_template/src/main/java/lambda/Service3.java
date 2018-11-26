@@ -10,8 +10,16 @@ import com.amazonaws.services.lambda.runtime.CognitoIdentity;
 import com.amazonaws.services.lambda.runtime.Context; 
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
 import faasinspector.register;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -19,14 +27,76 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
+import java.util.Scanner;
 /**
  * uwt.lambda_test::handleRequest
  * @author wlloyd
  */
-public class HelloSqlite implements RequestHandler<Request, Response>
+public class Service3 implements RequestHandler<Request, Response>
 {
     static String CONTAINER_ID = "/tmp/container-id";
     static Charset CHARSET = Charset.forName("US-ASCII");
+    
+    public static boolean setCurrentDirectory(String directory_name)
+    {
+        boolean result = false;  // Boolean indicating whether directory was set
+        File    directory;       // Desired current working directory
+
+        directory = new File(directory_name).getAbsoluteFile();
+        if (directory.exists() || directory.mkdirs())
+        {
+            result = (System.setProperty("user.dir", directory.getAbsolutePath()) != null);
+        }
+
+        return result;
+    }
+        
+     public static void createFile(String filename,InputStream input){
+       try{
+	    byte[] buffer = new byte[input.available()];
+            input.read(buffer);
+	    File file = new File(filename);      
+	    OutputStream out = new FileOutputStream(file);
+            out.write(buffer);
+            out.flush();
+	    out.close(); 
+	}
+	catch(Exception e){
+	    e.printStackTrace();
+	}
+	
+    }
+    
+    private void DownloadSQLiteDatabase(String bucketName, String sourceKey, String fileName)
+    {
+        
+        setCurrentDirectory("/tmp");
+            
+        AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();         
+        
+        //get object file using source bucket and srcKey name
+        
+        S3Object s3Object = s3Client.getObject(new GetObjectRequest(bucketName, sourceKey));
+        //get content of the file
+        
+        InputStream objectData = s3Object.getObjectContent();
+        //scanning data line by line
+        String textToUpload = "";
+        Scanner scanner = new Scanner(objectData);
+        long total = 0;
+        double avg = 0;
+        int count  = 0;
+        while (scanner.hasNext()) {
+            String line = scanner.nextLine();
+            String[] parts = line.split(",");
+            long sum = 0;
+            total += sum;
+            textToUpload += line;
+        }
+        scanner.close();
+
+       createFile("tmp/salespipeline.db", objectData);	
+    }
     
     
     // Lambda Function Handler
@@ -183,7 +253,7 @@ public class HelloSqlite implements RequestHandler<Request, Response>
         };
         
         // Create an instance of the class
-        HelloSqlite lt = new HelloSqlite();
+        Service3 lt = new Service3();
         
         // Create a request object
         Request req = new Request();
