@@ -23,12 +23,12 @@ public class Response extends fiResponse {
     //
 
     // Return value
-    private String value;
-    public String getValue()
+    private double value;
+    public double getValue()
     {
         return value;
     }
-    public void setValue(String value)
+    public void setValue(double value)
     {
         this.value = value;
     }
@@ -49,6 +49,16 @@ public class Response extends fiResponse {
     
     public void setCount(int count){
         this.count = count;
+    }
+    
+    private String message;
+    public String getMessage()
+    {
+        return message;
+    }
+    public void setMessage(String message)
+    {
+        this.message = message;
     }
     
     @Override

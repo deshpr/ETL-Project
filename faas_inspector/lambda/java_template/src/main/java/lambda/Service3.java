@@ -158,7 +158,9 @@ public class Service3 implements RequestHandler<Request, Response>
             logger.log("Execute the results");
             while (ps.next())
             {
-                result = ps.getDouble(0);
+                logger.log("value = " + ps.getDouble(1));
+                result = ps.getDouble(1);
+                logger.log("Read the value = " + result);
             }            
             ps.close();
             con.close();
@@ -170,6 +172,19 @@ public class Service3 implements RequestHandler<Request, Response>
         return result;
     }
      
+    public double HandleAggregateQuery(String queryType, String column, String parameters)
+    {
+        queryType = queryType.toLowerCase();
+        String query = "";
+       
+        logger.log("Handle aggregate query, col " + column + " type = " + queryType);
+        
+        query = "SELECT " + queryType + "("+ column + ") from sales";
+        logger.log("Query  = " + query);
+        double result = executeAggregateQuery(query);            
+        return result;
+    }
+    
     public LinkedList<SalesRecord> executeFilterQuery(String query){
         int count = 0;
         LinkedList<SalesRecord> results = new LinkedList<SalesRecord>();
@@ -208,65 +223,46 @@ public class Service3 implements RequestHandler<Request, Response>
 	}
         return results;
     }
-     
-     
-    public LinkedList<SalesRecord> HandleFilterQuery(String queryType, String column, String parameters)
-    {
-
-    }
-    
-    public LinkedList<SalesRecord> HandleQuery(String queryType, String column, String parameters){
+             
+    public LinkedList<SalesRecord> HandleFilterQuery(String queryType, String column, String parameters){
         
         logger.log("Query type = " + queryType.toLowerCase());
         LinkedList<SalesRecord> results = null;
         String query = "";
-        boolean filterQuery = false;
         
         if(queryType.toLowerCase().equals("filter"))
         {
             logger.log("Query type is filter, column = " + column + " and parameters = " + parameters);
             query = "SELECT * FROM sales WHERE " + column + "='" + parameters + "';";            
-            filterQuery = true;
         }
-        else if(queryType.toLowerCase().equals("Max")){
-            query = "SELECT MAX(" + column + ") from sales;";
-        }
-        
-        if(filterQuery){
-            double result = executeAggregateQuery(query);            
-        }
-        return results;
+        return executeFilterQuery(query);
     }
     
+    public boolean isFilterTypeQuery(String queryType){
+        return queryType.toLowerCase().equals("filter");
+    }
     
     // Lambda Function Handler
     public Response handleRequest(Request request, Context context) {
-
-        
         String requestName = request.getName();
-//        String[] columns = request.getColumns();
-
         // Create logger
          logger = context.getLogger();
         
         // Register function
         register reg = new register(logger);
 
-        //stamp container with uuid
-
         logger.log("Type  is another one " + requestName + " and colum");
         
         Response r = reg.StampContainer();
-        String response =  "Type  is another one  " + requestName + " and column count = " + request.getColumns();
+        String response =  "Query type " + request.getName() + " and column name = " + request.getColumns() + " and parameter = " + request.getParameters();
 
-        r.setValue(response);
+        r.setMessage(response);
 
-          String directoryName = "/tmp";
+        String directoryName = "/tmp";
         logger.log("Called the aws lamnbda");
         String bucketName = "test.bucket.562.rah1";
         String databaseFileName = sqlDatabaseFileName;
        
-        
         if(!checkIfFileExists(directoryName, databaseFileName))
         {
             logger.log("Creating the database file since it does not exist");
@@ -275,45 +271,18 @@ public class Service3 implements RequestHandler<Request, Response>
         }
         
         logger.log("col = " + request.getName() + " and columns = " + request.getColumns() + " and parameters = " + request.getParameters());
-        LinkedList<SalesRecord> results = HandleQuery(request.getName(), request.getColumns(), request.getParameters());
-        r.setSalesRecords(results);
-        r.setCount(results.size());
         
-        /*
-                    try{
-                                setCurrentDirectory(directoryName);
-            Connection con = DriverManager.getConnection("jdbc:sqlite:" + databaseFileName);
-
-            logger.log("trying to create table 'sales' if it does not exists"); 
-            PreparedStatement   ps   =   con.prepareStatement("SELECT   name   FROM   sqlite_master   WHERE type='table' AND name='sales'");
-            ResultSet rs = ps.executeQuery();
-            if (!rs.next())
-            {
-                    // 'sales' does not exist, and should be created
-                    logger.log("trying to create table 'sales'");
-                    ps = con.prepareStatement("CREATE TABLE IF NOT EXISTS sales(region text,country text,itemtype text,saleschannel text,orderpriority text,orderdate text,orderid integer,shipdate text,unitssold integer,unitprice real,unitcost real,totalrevenue real,totalcost real,totalprofit real);");  
-                    ps.execute();
-            }
-            rs.close();
-                
-            // Load a query.
-            int count = getCountOfRecords(databaseFileName);
-            
-            logger.log("Total of records = " + count);
+        if(isFilterTypeQuery(request.getName())){
+            logger.log("Query type is fulter");
+            LinkedList<SalesRecord> results = HandleFilterQuery(request.getName(), request.getColumns(), request.getParameters());
+            r.setSalesRecords(results);
+            r.setCount(results.size());            
         }
-        catch(Exception ex)
-        {
-        logger.log(ex.toString());
-        }  */
-
-        
-
-        /*
-        
-
-        */
-        
-        
+        else{
+            double result = HandleAggregateQuery(request.getName(), request.getColumns(), bucketName);
+            r.setValue(result);
+            r.setCount(1);
+        }
         
         return r;
     }
