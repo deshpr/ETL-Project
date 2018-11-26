@@ -75,23 +75,7 @@ public class Service3 implements RequestHandler<Request, Response>
             writer.flush();
             writer.close();
             reader.close();
-           
-/*	    byte[] buffer = new byte[input.available()];
-            String currentDirectory = System.getProperty("user.dir");
-            logger.log("Current dir = " + currentDirectory);
-            input.read(buffer);
-            logger.log("Read the entire buffer of length = " +  buffer.length);            
-	    File file = new File(currentDirectory, filename);      
-	    OutputStream out = new FileOutputStream(file);
-            logger.log("Write to the buffer");
-            out.write(buffer);
-            out.flush();
-	    out.close(); 
-	}
-	catch(Exception e){
-	    e.printStackTrace();
-            logger.log(e.toString());  */
-
+          
         logger.log("File after writing has size = " + file.length());
 
 	}catch(Exception ex){
@@ -147,24 +131,23 @@ public class Service3 implements RequestHandler<Request, Response>
         String directoryName = "/tmp";
                 r.setValue(hello);
         
-        setCurrentDirectory(directoryName);
+
         
         logger.log("Called the aws lamnbda");
         String bucketName = "test.bucket.562.rah1";
-        String fileName = "salespipeline.db";
+        String databaseFileName = "salespipeline.db";
        
             
         
         
-        if(!checkIfFileExists(directoryName, fileName)){
-            DownloadSQLiteDatabase(bucketName, fileName, fileName, directoryName);
+        if(!checkIfFileExists(directoryName, databaseFileName)){
+            logger.log("Creating the database file since it does not exist");
+            DownloadSQLiteDatabase(bucketName, databaseFileName, databaseFileName, directoryName);
             logger.log("Downloaded the entire datavase");
         }
-
-        /*
-        
-        try{
-            Connection con = DriverManager.getConnection("jdbc:sqlite:salespipeline.db");
+                    try{
+                                setCurrentDirectory(directoryName);
+            Connection con = DriverManager.getConnection("jdbc:sqlite:" + databaseFileName);
 
             logger.log("trying to create table 'sales' if it does not exists"); 
             PreparedStatement   ps   =   con.prepareStatement("SELECT   name   FROM   sqlite_master   WHERE type='table' AND name='sales'");
@@ -183,6 +166,11 @@ public class Service3 implements RequestHandler<Request, Response>
         {
         logger.log(ex.toString());
         }
+
+        
+
+        /*
+        
 
         */
         
