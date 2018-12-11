@@ -280,15 +280,23 @@ public class Service3 implements RequestHandler<Request, Response>
         return ExecuteQuery(query);
     }
     
+    
+    public static long startTime;
+    
+    public static long endTime;
+    
     public LinkedList< Map<String, Object>> ExecuteQuery(String query){
         int count = 0;
         
         LinkedList< Map<String, Object>> results = new LinkedList< Map<String, Object>>();
 	try{
+            
+            
 	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqlDatabaseFileName);
 	    PreparedStatement ps1 = con.prepareStatement(query);
-	    ResultSet ps = ps1.executeQuery();
-            
+	    startTime = System.nanoTime();
+            ResultSet ps = ps1.executeQuery();
+            endTime = System.nanoTime();
             logger.log("Execute the results, query = " + query);
             
             ResultSetMetaData metadata = ps.getMetaData();
@@ -309,25 +317,6 @@ public class Service3 implements RequestHandler<Request, Response>
                 
                 logger.log("Found record");
 
-/*                
-                            
-                           ps.get
-                SalesRecord record = new SalesRecord();
-                record.Region = ps.getString(Columns[0]);
-                record.Country = ps.getString(Columns[1]);
-                record.ItemType = ps.getString(Columns[2]);
-                record.SalesChannel = ps.getString(Columns[3]);
-                record.OrderPriority = ps.getString(Columns[4]);
-                record.OrderDate = ps.getString(Columns[5]);
-                record.OrderId = ps.getInt(Columns[6]);
-                record.ShipDate = ps.getString(Columns[7]);
-                record.UnitsSold = ps.getInt(Columns[8]);                   
-                record.UnitPrice = ps.getDouble(Columns[9]);
-                record.UnitCost = ps.getDouble(Columns[10]);
-                record.TotalRevenue = ps.getDouble(Columns[11]);
-                record.TotalCost = ps.getDouble(Columns[12]);
-                record.TotalProfit  = ps.getDouble(Columns[13]);	
-                results.add(record); */
             }
             ps.close();
             con.close();
@@ -395,8 +384,14 @@ public class Service3 implements RequestHandler<Request, Response>
                 logger.log("Count = " + filterInfos.size());
             }
             String[] groupByColumns = request.getGroupbycolumns();
-            LinkedList<Map<String, Object>> result = HandleQuery(r, request.getAggregateInfo(), request.getFilterinfo(),
-                            request.getColumns(), groupByColumns);
+            LinkedList<Map<String, Object>> result = null;
+            if(!StringIsNullOrEmpty(request.getQuery())){
+                result = ExecuteQuery(request.getQuery());
+            }
+            else{
+                result = HandleQuery(r, request.getAggregateInfo(), request.getFilterinfo(), request.getColumns(), groupByColumns);
+            }
+                           
             r.setSalesRecords(result);
             r.setCount(result.size());  
             r.setMessage("Success");
@@ -412,6 +407,8 @@ public class Service3 implements RequestHandler<Request, Response>
                 if(res == 0){
                     logger.log("Was able to  upload to s3");
                 }
+                r.setStarttime(startTime);
+                r.setEndtime(endTime);
             }
             
         }catch(Exception ex)
@@ -502,7 +499,7 @@ public class Service3 implements RequestHandler<Request, Response>
         // Grab the name from the cmdline from arg 0
         String name = (args.length > 0 ? args[0] : "");
         // Create a request object
-        Request req = new Request(null, null, null, null, null, null, null, null, null);
+        Request req = new Request(null, null, null, null, null, null, null, null, null, null);
         
         
         // Run the function

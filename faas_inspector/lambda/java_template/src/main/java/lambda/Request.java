@@ -40,9 +40,18 @@ public class Request {
         this.filterinfo = filterinfo;
     }
     
+    private String query;
+    public String getQuery(){
+        return query;
+    }
+    
+    public void setQuery(String query){
+        this.query = query;
+    }
+    
     public Request(String bucketname, String databasefilename, LinkedList<AggregateInfo> aggregateinfo, 
                     LinkedList<FilterInfo> filterInfo,
-                    String[] columns, String[] groupbycolumns, String outputbucketname, String outputfilename, String clientid)
+                    String[] columns, String[] groupbycolumns, String outputbucketname, String outputfilename, String clientid, String query)
     {
         this.databasefilename = databasefilename;
         this.bucketname = bucketname;
@@ -53,6 +62,7 @@ public class Request {
         this.outputbucketname = outputbucketname;
         this.outputfilename = outputfilename;
         this.clientid = clientid;
+        this.query = query;
     }
     
     private String bucketname;

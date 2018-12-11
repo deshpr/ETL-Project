@@ -58,6 +58,28 @@ public class Response extends fiResponse {
         this.message = message;
     }
     
+    private long starttime;
+
+    public void setStarttime(long starttime){
+        this.starttime = starttime;
+    }
+
+    public long getStarttime(){
+        return this.starttime;
+    }
+
+    private long endtime;
+
+    public void setEndtime(long endtime){
+        this.endtime = endtime;
+    }
+
+    public long getEndtime(){
+        return this.endtime;
+    }
+
+    
+    
     @Override
     public String toString()
     {
