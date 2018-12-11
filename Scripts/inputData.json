@@ -1,0 +1,17 @@
+{
+	"bucketname":"test.bucket.562.rah1",
+	"databasefilename":"salespipeline.db",
+	"clientid":"12345",
+	"outputbucketname":"test.bucket.562.rah1",
+	"outputfilename":"myoutput",
+	"aggregateInfo":[
+		{
+			"type":"avg",
+			"columnname":"totalrevenue"
+		}
+	],
+	"groupbycolumns":[
+		"itemtype"
+		]
+
+}
