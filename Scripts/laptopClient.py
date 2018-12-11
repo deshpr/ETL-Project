@@ -36,7 +36,7 @@ else:
         print(json_data)        
         print("\n\n\n Calling Service 3")
         API_ENDPOINT_SERVICE_ONE = "https://lqe1p8ol0m.execute-api.us-west-2.amazonaws.com/Production/"
-        jsonToSend = {"bucketname":"final.bucket.562.team6", "filename":"salespipeline.db", ""}
+        jsonToSend = {"bucketname":"final.bucket.562.team6", "filename":"salespipeline.db", "query":"SELECT * FROM sales;"}
         response = http_post(API_ENDPOINT_SERVICE_THREE, jsonToSend, headers)
         resultcode = response.status_code
         if resultcode == 200:
@@ -45,6 +45,3 @@ else:
         else:
             print("Service 3 has failed")
             exit(-1)
-
-else:
-    print(resultcode)
