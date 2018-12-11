@@ -14,6 +14,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import faasinspector.register;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -29,11 +31,17 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Scanner;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 /**
  * uwt.lambda_test::handleRequest
  * @author wlloyd
@@ -147,56 +155,148 @@ public class Service3 implements RequestHandler<Request, Response>
         "totalcost",
         "totalprofit"            
     };
-     
-    public double executeAggregateQuery(String query){
+         
+    public String CreateAggregateQuery(String originalQuery, LinkedList<AggregateInfo> aggregateInfos) throws Exception{
         
-        double result = 0;
-	try{
-	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqlDatabaseFileName);
-	    PreparedStatement ps1 = con.prepareStatement(query);
-	    ResultSet ps = ps1.executeQuery();
-            logger.log("Execute the results");
-            while (ps.next())
+        if(originalQuery.compareTo("") == 0){
+            throw new Exception("Query is empty!");
+        }
+        originalQuery += " ";
+        
+        if(aggregateInfos.size() > 0){
+            originalQuery += ",";
+        }
+        for(int i = 0; i < aggregateInfos.size(); i++){
+            AggregateInfo info = aggregateInfos.get(i);
+            String columnName = info.getColumnname();
+            logger.log("column = " + columnName);
+            columnName = columnName.toLowerCase();
+            columnName = columnName.replace(" ", "");
+            columnName = Transformer.transformColumn(logger, columnName);
+            String type =  info.getType();
+            logger.log("type = " + type);
+            originalQuery += type + "(" + columnName + ")";
+            if(i != aggregateInfos.size() - 1)
             {
-                logger.log("value = " + ps.getDouble(1));
-                result = ps.getDouble(1);
-                logger.log("Read the value = " + result);
-            }            
-            ps.close();
-            con.close();
-	}
-	catch(Exception e){
-		e.printStackTrace();
-                logger.log(e.toString());
-	}
-        return result;
+                originalQuery += ",";
+            }
+            
+        }
+//        originalQuery += " GROUP BY ";
+        return originalQuery;
     }
      
-    public double HandleAggregateQuery(String queryType, String column, String parameters)
-    {
-        queryType = queryType.toLowerCase();
-        String query = "";
-       
-        logger.log("Handle aggregate query, col " + column + " type = " + queryType);
-        
-        query = "SELECT " + queryType + "("+ column + ") from sales";
-        logger.log("Query  = " + query);
-        double result = executeAggregateQuery(query);            
-        return result;
+    public String getColumnName(String columnName){
+        columnName = columnName.toLowerCase();
+        columnName = columnName.replace(" ", "");
+        return columnName;
     }
     
-    public LinkedList<SalesRecord> executeFilterQuery(String query){
+    
+    public LinkedList< Map<String, Object>> HandleQuery(Response response, 
+                            LinkedList<AggregateInfo> aggregateInfos,
+                            LinkedList<FilterInfo> filterInfos, String[] columns, String[] groupByColumns) throws Exception
+    {       
+        logger.log("Handle aggregate and filter query");     
+        String query = "SELECT ";
+        String[] arr;
+        if(columns!=null && columns.length != 0){
+            arr = columns;
+        }
+        else{
+            arr = Columns;
+        }
+        
+        for(int i = 0; i < arr.length; i++){
+            query += arr[i];
+            if(i!= arr.length - 1){
+                query += ",";
+            }
+        }
+        query += " ";
+        logger.log("Query  = " + query);
+        boolean aggregate = false;
+        if(aggregateInfos!= null && !aggregateInfos.isEmpty()){
+            query = CreateAggregateQuery(query, aggregateInfos);                        
+            aggregate = true;
+        }
+        
+        query += " from sales ";
+        logger.log("Query  = " + query);
+        
+        if(aggregate)
+        {
+            query += "GROUP BY ";
+            for(int i = 0; i < groupByColumns.length; i++){
+                logger.log("Adding column = " + groupByColumns[i]);
+                String columnName = groupByColumns[i];
+                query  = query +   getColumnName(columnName); 
+                if(i!= groupByColumns.length - 1){
+                    query  += ",";
+                }
+
+            }            
+        }
+        
+        logger.log("query we are executing = " + query);
+        if(filterInfos!= null && !filterInfos.isEmpty()){
+            
+            if(aggregate){
+                query += " HAVING ";                
+            }
+            else
+            {
+                query += " WHERE ";
+            }
+            
+            logger.log("there is filter info");
+            for(int i = 0; i < filterInfos.size(); i++){
+                String columnName = getColumnName(filterInfos.get(i).getColumnname());
+                String columnValue = Transformer.transformValue(logger, columnName, filterInfos.get(i).getColumnvalue());               
+                query +=  columnName + "='" +  columnValue + "'";
+                if(i!= filterInfos.size() - 1){
+                    query += " AND ";
+                }
+            }
+        }
+        
+        logger.log("query we are executing = " + query);
+        response.setQuery(query);
+        return ExecuteQuery(query);
+    }
+    
+    public LinkedList< Map<String, Object>> ExecuteQuery(String query){
         int count = 0;
-        LinkedList<SalesRecord> results = new LinkedList<SalesRecord>();
+        
+        LinkedList< Map<String, Object>> results = new LinkedList< Map<String, Object>>();
 	try{
 	    Connection con = DriverManager.getConnection("jdbc:sqlite:" + sqlDatabaseFileName);
 	    PreparedStatement ps1 = con.prepareStatement(query);
 	    ResultSet ps = ps1.executeQuery();
             
-            logger.log("Execute the results");
+            logger.log("Execute the results, query = " + query);
+            
+            ResultSetMetaData metadata = ps.getMetaData();
+            int columnCount = metadata.getColumnCount();
+            logger.log("Column count = " + columnCount);
+            
+            LinkedList<Map<String, Object>> jsonObjects = new LinkedList<Map<String, Object>>();
             
             while (ps.next())
             {
+                Map<String, Object> jsonObject = new  HashMap<String, Object>();
+                
+                for(int i = 1; i <= columnCount; i++){
+                    jsonObject.put(metadata.getColumnName(i), ps.getObject(i)); 
+                    logger.log("column = " + metadata.getColumnName(i));
+                }
+                results.add(jsonObject);
+                
+                logger.log("Found record");
+
+/*                
+                            
+                           ps.get
                 SalesRecord record = new SalesRecord();
                 record.Region = ps.getString(Columns[0]);
                 record.Country = ps.getString(Columns[1]);
@@ -212,7 +312,7 @@ public class Service3 implements RequestHandler<Request, Response>
                 record.TotalRevenue = ps.getDouble(Columns[11]);
                 record.TotalCost = ps.getDouble(Columns[12]);
                 record.TotalProfit  = ps.getDouble(Columns[13]);	
-                results.add(record);
+                results.add(record); */
             }
             ps.close();
             con.close();
@@ -223,45 +323,39 @@ public class Service3 implements RequestHandler<Request, Response>
 	}
         return results;
     }
-             
-    public LinkedList<SalesRecord> HandleFilterQuery(String queryType, String column, String parameters){
-        
-        logger.log("Query type = " + queryType.toLowerCase());
-        LinkedList<SalesRecord> results = null;
-        String query = "";
-        
-        if(queryType.toLowerCase().equals("filter"))
-        {
-            logger.log("Query type is filter, column = " + column + " and parameters = " + parameters);
-            query = "SELECT * FROM sales WHERE " + column + "='" + parameters + "';";            
-        }
-        return executeFilterQuery(query);
-    }
-    
+      
     public boolean isFilterTypeQuery(String queryType){
         return queryType.toLowerCase().equals("filter");
     }
     
+    public LinkedList< Map<String, Object>> GetResults(LinkedList<AggregateInfo> aggregateInfos) throws Exception
+    {
+        String query = "SELECT * FROM sales";
+        query = CreateAggregateQuery(query, aggregateInfos);
+        return ExecuteQuery(query);
+    }
+    
     // Lambda Function Handler
     public Response handleRequest(Request request, Context context) {
-        String requestName = request.getName();
         // Create logger
          logger = context.getLogger();
-        
+
+         logger.log("log = " + request.toString());
         // Register function
         register reg = new register(logger);
 
-        logger.log("Type  is another one " + requestName + " and colum");
-        
         Response r = reg.StampContainer();
-        String response =  "Query type " + request.getName() + " and column name = " + request.getColumns() + " and parameter = " + request.getParameters();
-
-        r.setMessage(response);
-
+                      
         String directoryName = "/tmp";
         logger.log("Called the aws lamnbda");
-        String bucketName = "test.bucket.562.rah1";
-        String databaseFileName = sqlDatabaseFileName;
+        String bucketName = request.getBucketname();//"test.bucket.562.rah1";
+        String databaseFileName = "";
+        if(request.getDatabasefilename()== null || "".equals(request.getDatabasefilename())){
+             databaseFileName = sqlDatabaseFileName;            
+        }
+        else{
+            databaseFileName = request.getDatabasefilename();      
+        }
        
         if(!checkIfFileExists(directoryName, databaseFileName))
         {
@@ -270,22 +364,37 @@ public class Service3 implements RequestHandler<Request, Response>
             logger.log("Downloaded the entire datavase");
         }
         
-        logger.log("col = " + request.getName() + " and columns = " + request.getColumns() + " and parameters = " + request.getParameters());
-        
-        if(isFilterTypeQuery(request.getName())){
-            logger.log("Query type is fulter");
-            LinkedList<SalesRecord> results = HandleFilterQuery(request.getName(), request.getColumns(), request.getParameters());
-            r.setSalesRecords(results);
-            r.setCount(results.size());            
+        try{
+            LinkedList<FilterInfo> filterInfos = request.getFilterinfo();
+            if(filterInfos == null){
+                logger.log("Filter info nbot passed");
+            }
+            else
+            {
+                logger.log("Count = " + filterInfos.size());
+            }
+            String[] groupByColumns = request.getGroupbycolumns();
+            LinkedList<Map<String, Object>> result = HandleQuery(r, request.getAggregateInfo(), request.getFilterinfo(),
+                            request.getColumns(), groupByColumns);
+            r.setSalesRecords(result);
+            r.setCount(result.size());  
+            r.setMessage("Success");
+            
+        }catch(Exception ex)
+        {
+            logger.log(ex.toString());
+            logger.log("m,essage = " + ex.getMessage());
+            logger.log("Stack trace = " + ex.getStackTrace());
+            r.setMessage("ERROR: " + ex.getMessage());
         }
-        else{
-            double result = HandleAggregateQuery(request.getName(), request.getColumns(), bucketName);
-            r.setValue(result);
-            r.setCount(1);
-        }
-        
-        return r;
+        return r; 
     }
+    
+    
+    public void QueryHandler(LinkedList<AggregateInfo> aggregateInfo){
+        
+    }
+    
     
     // int main enables testing function from cmd line
     public static void main (String[] args)
@@ -359,7 +468,7 @@ public class Service3 implements RequestHandler<Request, Response>
         // Grab the name from the cmdline from arg 0
         String name = (args.length > 0 ? args[0] : "");
         // Create a request object
-        Request req = new Request(name, "");
+        Request req = new Request(null, null, null, null, null, null);
         
         
         // Run the function

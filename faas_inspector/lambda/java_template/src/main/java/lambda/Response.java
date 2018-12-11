@@ -5,9 +5,13 @@
  */
 package lambda;
 
+import com.google.gson.annotations.Expose;
 import faasinspector.fiResponse;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  *
@@ -15,32 +19,25 @@ import java.util.List;
  */
 public class Response extends fiResponse {
     
-    //
-    // User Defined Attributes
-    //
-    //
-    // ADD getters and setters for custom attributes here.
-    //
-
-    // Return value
-    private double value;
-    public double getValue()
-    {
-        return value;
-    }
-    public void setValue(double value)
-    {
-        this.value = value;
-    }
     
-    private LinkedList<SalesRecord> salesRecords;
-    public LinkedList<SalesRecord> getSalesRecords(){
+    private LinkedList<Map<String, Object>> salesRecords;
+    public  LinkedList<Map<String, Object>> getSalesRecords(){
         return salesRecords;
     }
     
-    public void setSalesRecords(LinkedList<SalesRecord> salesRecords){
+    public void setSalesRecords(LinkedList<Map<String, Object>> salesRecords){
         this.salesRecords = salesRecords;
     }
+    
+    private String query;
+    public String getQuery(){
+        return query;
+    }
+
+    public void setQuery(String query){
+        this.query = query;
+    }
+
     
     private int count;
     public int getCount(){
@@ -64,7 +61,7 @@ public class Response extends fiResponse {
     @Override
     public String toString()
     {
-        return "value=" + this.getValue() + super.toString(); 
+        return message;
     }
 
 }
