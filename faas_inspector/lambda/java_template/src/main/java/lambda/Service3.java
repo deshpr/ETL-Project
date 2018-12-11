@@ -14,6 +14,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import faasinspector.register;
@@ -190,8 +191,22 @@ public class Service3 implements RequestHandler<Request, Response>
         columnName = columnName.toLowerCase();
         columnName = columnName.replace(" ", "");
         return columnName;
+    }    
+    
+    public boolean StringIsNullOrEmpty(String s){
+        return s==null || s.isEmpty();
     }
     
+    public boolean outputIsProvided(Request request){
+        if(!StringIsNullOrEmpty(request.getClientid())
+           && !StringIsNullOrEmpty(request.getOutputbucketname())
+           & !StringIsNullOrEmpty(request.getOutputfilename())){
+            return true;
+        }
+        return false;
+    }
+    
+   
     
     public LinkedList< Map<String, Object>> HandleQuery(Response response, 
                             LinkedList<AggregateInfo> aggregateInfos,
@@ -328,6 +343,12 @@ public class Service3 implements RequestHandler<Request, Response>
         return queryType.toLowerCase().equals("filter");
     }
     
+    public int uploadToS3(String bucketName, String key, String content){
+        AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();         
+        s3Client.putObject(bucketName, key, content);
+        return 0; 
+    }
+    
     public LinkedList< Map<String, Object>> GetResults(LinkedList<AggregateInfo> aggregateInfos) throws Exception
     {
         String query = "SELECT * FROM sales";
@@ -379,6 +400,19 @@ public class Service3 implements RequestHandler<Request, Response>
             r.setSalesRecords(result);
             r.setCount(result.size());  
             r.setMessage("Success");
+            logger.log("outputfile = " + request.getOutputbucketname() + ", file = " + request.getOutputfilename() + ", client id = " + request.getClientid());
+            if(outputIsProvided(request)){
+                String bucketname = request.getOutputbucketname();
+                String filename = request.getOutputfilename();
+                String clientId = request.getClientid();
+                Gson gson = new Gson();
+                String jsonToReturn = gson.toJson(r);
+                logger.log("Outputting to bucket = " + bucketname + " and client  = " + clientId + " and file = " + filename);
+                int res = uploadToS3(bucketname, clientId + "/" + filename, jsonToReturn);
+                if(res == 0){
+                    logger.log("Was able to  upload to s3");
+                }
+            }
             
         }catch(Exception ex)
         {
@@ -468,7 +502,7 @@ public class Service3 implements RequestHandler<Request, Response>
         // Grab the name from the cmdline from arg 0
         String name = (args.length > 0 ? args[0] : "");
         // Create a request object
-        Request req = new Request(null, null, null, null, null, null);
+        Request req = new Request(null, null, null, null, null, null, null, null, null);
         
         
         // Run the function

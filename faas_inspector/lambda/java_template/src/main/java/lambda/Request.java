@@ -40,8 +40,9 @@ public class Request {
         this.filterinfo = filterinfo;
     }
     
-    public Request(String bucketname, String databasefilename, LinkedList<AggregateInfo> aggregateinfo, LinkedList<FilterInfo> filterInfo,
-                    String[] columns, String[] groupbycolumns)
+    public Request(String bucketname, String databasefilename, LinkedList<AggregateInfo> aggregateinfo, 
+                    LinkedList<FilterInfo> filterInfo,
+                    String[] columns, String[] groupbycolumns, String outputbucketname, String outputfilename, String clientid)
     {
         this.databasefilename = databasefilename;
         this.bucketname = bucketname;
@@ -49,12 +50,39 @@ public class Request {
         this.filterinfo = filterInfo;
         this.columns = columns;
         this.groupbycolumns = groupbycolumns;
+        this.outputbucketname = outputbucketname;
+        this.outputfilename = outputfilename;
+        this.clientid = clientid;
     }
     
     private String bucketname;
-    
     public String getBucketname(){
         return this.bucketname;
+    }
+    
+    private String clientid;
+    public String getClientid(){
+        return clientid;
+    }
+    public void setClientid(String clientid){
+        this.clientid = clientid;
+    }
+    
+    private String outputbucketname;
+    public String getOutputbucketname(){
+        return outputbucketname;
+    }
+    public void setOutputbucketname(String outputbucketname){
+        this.outputbucketname = outputbucketname;
+    }
+    
+    private String outputfilename;
+    public String getOutputfilename(){
+        return this.outputfilename;
+    }
+    
+    public void setOutputfilename(String outputfilename){
+        this.outputfilename = outputfilename;
     }
     
     public void setBucketname(String bucketname){
