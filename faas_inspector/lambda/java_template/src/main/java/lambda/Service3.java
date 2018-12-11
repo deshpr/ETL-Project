@@ -360,11 +360,11 @@ public class Service3 implements RequestHandler<Request, Response>
         logger.log("Called the aws lamnbda");
         String bucketName = request.getBucketname();//"test.bucket.562.rah1";
         String databaseFileName = "";
-        if(request.getDatabasefilename()== null || "".equals(request.getDatabasefilename())){
+        if(request.getFilename()== null || "".equals(request.getFilename())){
              databaseFileName = sqlDatabaseFileName;            
         }
         else{
-            databaseFileName = request.getDatabasefilename();      
+            databaseFileName = request.getFilename();      
         }
        
         if(!checkIfFileExists(directoryName, databaseFileName))

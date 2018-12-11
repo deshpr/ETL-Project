@@ -49,11 +49,11 @@ public class Request {
         this.query = query;
     }
     
-    public Request(String bucketname, String databasefilename, LinkedList<AggregateInfo> aggregateinfo, 
+    public Request(String bucketname, String filename, LinkedList<AggregateInfo> aggregateinfo, 
                     LinkedList<FilterInfo> filterInfo,
                     String[] columns, String[] groupbycolumns, String outputbucketname, String outputfilename, String clientid, String query)
     {
-        this.databasefilename = databasefilename;
+        this.filename = filename;
         this.bucketname = bucketname;
         this.aggregateinfo = aggregateinfo;
         this.filterinfo = filterInfo;
@@ -99,16 +99,16 @@ public class Request {
         this.bucketname = bucketname;
     }
     
-    private String databasefilename;
-    public String getDatabasefilename(){
-        return databasefilename;
+    private String filename;
+    public String getFilename(){
+        return filename;
     }
-    public void setDatabasefilename(String databasefilename){
-        this.databasefilename = databasefilename;;
+    public void setFilename(String databasefilename){
+        this.filename = databasefilename;;
     }
     
     public String toString(){
-        return "bucket = " +  getBucketname() + " and file = " + getDatabasefilename();
+        return "bucket = " +  getBucketname() + " and file = " + getFilename();
     }
     
     private String[] groupbycolumns;
